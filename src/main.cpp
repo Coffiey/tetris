@@ -10,7 +10,10 @@ void stopMusic(sf::Music& music);
 void drawScreen();
 void gamePlayLoop(int state[], int SIZE);
 void controller(int state[], int SIZE,int* PLAY, bool* LeftPressed, bool* RightPressed, bool* UpPressed, bool* DownPressed, int* pos);
-void gameAI(int state[], int SIZE, sf::Time point, double* drop);
+void gameAI(int state[], int SIZE, int* pos, int* phase, char* piece);
+void drawSquare(int state[], int* pos);
+void removeSquare(int state[], int* pos);
+bool checkSquare(int state[], int* pos);
 
 std::string drawCell();
 
@@ -103,8 +106,28 @@ void drawScreen(int state[], int SIZE) {
     }
 }
 
+void removeSquare(int state[], int* pos) {
+    // kiss
+    // this is a game play piece
+    if (*pos % 10 != 0) state[*pos] = 0;
+    if (*pos % 10 != 0) state[*pos - 1] = 0;
+    if (*pos % 10 != 0 && *pos > 10) state[*pos - 10] = 0;
+    if (*pos % 10 != 0 && *pos > 10) state[*pos - 11] = 0;
+}
 
+void drawSquare(int state[], int* pos) {
+    // this is a game play piece
+    if (*pos % 10 != 0) state[*pos] = 1;
+    if (*pos % 10 != 0) state[*pos - 1] = 1;
+    if (*pos % 10 != 0 && *pos > 10) state[*pos - 10] = 1;
+    if (*pos % 10 != 0 && *pos > 10) state[*pos - 11] = 1;
+}
 
+bool checkSquare(int state[], int* pos) {
+    if (*pos > 190) return true;
+    if (state[*pos + 10] || state[*pos + 9]) return true;
+    return false;
+} 
 
 // gameplay functions
 void controller(int state[], int SIZE, bool* PLAY, bool* LeftPressed, bool* RightPressed, bool* UpPressed, bool* DownPressed, int* pos) {
@@ -112,29 +135,30 @@ void controller(int state[], int SIZE, bool* PLAY, bool* LeftPressed, bool* Righ
     bool Right = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right);
     bool Up = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up);
     bool Down = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down);
-
+    if (checkSquare(state, pos)) return;
+    
     if (*LeftPressed && !Left) {
-        state[*pos] = 0;
+        removeSquare(state, pos);
         *pos -= 1;
-        if (state[*pos] != 1) state[*pos] = 1;
+        drawSquare(state, pos);
     }
 
     if (*RightPressed && !Right) {
-        state[*pos] = 0;
+        removeSquare(state, pos);
         *pos += 1;
-        if (state[*pos] != 1) state[*pos] = 1;
+        drawSquare(state, pos);
     }
         
     if (*UpPressed && !Up) {
-        state[*pos] = 0;
+        removeSquare(state, pos);
         *pos -= 10;
-        if (state[*pos] != 1) state[*pos] = 1;
+        drawSquare(state, pos);
     }
         
     if (*DownPressed && !Down) {
-        state[*pos] = 0;
+        removeSquare(state, pos);
         *pos += 10;
-        if (state[*pos] != 1) state[*pos] = 1;
+        drawSquare(state, pos);
     }
 
     *LeftPressed = Left;
@@ -150,20 +174,39 @@ void controller(int state[], int SIZE, bool* PLAY, bool* LeftPressed, bool* Righ
 }
 
 
-void gameAI(int state[], int SIZE, sf::Time time_stamp, int* pos, double* drop) {
-    // this needs to do multiple things
-    // it will fire only every tick
-    // therefore its task needs to simply be for now ticking to the bottom
-    // bit it need to do all the things I think
-    
-    // for now check if position is not in the bottom of the task
-    state[*pos] = 0;
-    *pos += 10;
-    if (state[*pos] != 1) state[*pos] = 1;
+void gameAI(int state[], int SIZE, int* pos, int* phase, char* piece) {
+    switch (*phase) {
+        case 0:
+            *pos = 5;
+            drawSquare(state, pos);
+            *phase = 1;
+            //example of spawining a block
+            break;
+        case 1:
+            // if cannot move
+            if (checkSquare(state, pos)) {
+                *phase = 2;
+                break;
+                }
+            removeSquare(state, pos);
+            *pos += 10;
+            drawSquare(state, pos);
+            break;
+        case 2:
+            // 2
+            // check that it lands (1 full tick cycle to land)
+            // lock piece in place 3
+            // check for full tetris 3
+            // check for single line tetris 3
+            
+            *phase = 0;
+            *pos = -1;
+            break;
+        default:
+            std::cout << "error";
+            break;
 
-    // if (*pos > 190) {
-    //     // complete the reset step
-    // }
+    }
 }
 
 
@@ -172,8 +215,13 @@ void gamePlayLoop(int state[], int SIZE) {
     bool PLAY = true;
     
     // For now other stuff
-    double drop = 0.0;
-    double level_multiplier = 1.0;
+    // char piece = 'c';
+
+    double level_multiplier = 0.5;
+
+    char piece = 'o';
+    int phase = 0;
+    int pos = -1;
 
     // controler constants 
     bool LeftPressed = false;
@@ -181,15 +229,17 @@ void gamePlayLoop(int state[], int SIZE) {
     bool UpPressed = false;
     bool DownPressed = false;
     
-    int pos = 5;
     
     while(PLAY) {
         sf::Time time_stamp = clock.getElapsedTime();
         drawScreen(state, SIZE);
         controller(state, SIZE, &PLAY, &LeftPressed, &RightPressed, &UpPressed, &DownPressed, &pos);
-        std::cout << time_stamp.asSeconds();
+        std::cout << time_stamp.asSeconds() << '\n';
+        std::cout << "phase: " << phase << '\n';
+        std::cout << "pos: " << pos;
         if (time_stamp.asSeconds() > level_multiplier) {
-            gameAI(state, SIZE, time_stamp, &pos, &drop);
+            // this is the game play tick only needing to alter the frame every tick of the 
+            gameAI(state, SIZE, &pos, &phase, &piece);
             clock.restart();
         }
     }
